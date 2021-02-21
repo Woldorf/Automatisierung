@@ -1,12 +1,9 @@
+from logging import PlaceHolder
 import os, discord
 from discord.ext import commands
+from discord.flags import MessageFlags
 from discord.utils import get
 from discord.ext import tasks
-#from dotenv import load_dotenv
-
-#Load the .env file
-#load_dotenv()
-#Get the bots token
 TOKEN = "Nzg5ODc2NDg2Njk3NjQ4MTY5.X94bzQ.mjYt_9zm3fa5CQ7ZzG-L0NE_vu8"
 GUILD = "Bot test server"
 
@@ -14,32 +11,48 @@ GUILD = "Bot test server"
 intents = discord.Intents.all()
 #Create a function to do things:
 bot = commands.Bot(command_prefix = "TNSS ", intents = intents)
-Active = False
+global Messages, Results
+Messages = []
+Results = []
 
 @bot.event
 async def on_ready():
+    global Guild
     Guild = get(bot.guilds, name = GUILD)
+    ThroneRoom = Guild.get_channel(794271850964189204)
+    Announcements = Guild.get_channel(794668206119190539)
     #Confirm its ready:
     print("Up and running")
 
     @tasks.loop(seconds = 10)
-    async def ThroneRoomLoop(Active):
-        ThroneRoom = Guild.get_channel(794271850964189204)
-        Active = not Active
+    async def ThroneRoomLoop():
+        global ThroneRoomActive
+        if (ThroneRoomLoop.current_loop % 2) == 0:
+            Active = False
+        else:
+            Active = True
 
         for Role in Guild.roles:
-            print(Role)
-            if Role.name == "Test User":
+            if Role.name == "TEst Admin":
                 Citizenry = Role
                 
         if Active:
+            for message in Messages:
+                await message["Message"].delete()
+
             await ThroneRoom.set_permissions(Citizenry, view_channel = True)
-            ThroneRoom.send("Open")
+            await Announcements.send("#throne-room is now open all yall!")
         else:
             await ThroneRoom.set_permissions(Citizenry, view_channel = False)
-            ThroneRoom.send("Closed")
+            await Announcements.send("#throne-room has closed. Voting will be held and results will be announced soon.")
+            
+            for message in Messages:
+                await message["Message"].add_reaction("👍")
+                await message["Message"].add_reaction("👎")
 
-    ThroneRoomLoop.start(Active)
+        ThroneRoomActive = Active
+
+    ThroneRoomLoop.start()
 
 @bot.command()
 async def RequestRank(ctx):
@@ -57,11 +70,19 @@ async def RequestRank(ctx):
             Placement += 1
 
         await discord.Message.delete(Message)
-        await Channel.send(User.mention + " Requests the rank of: " + str(RequestedRole))
+
+        if RequestedRole.name == "Head Regent":
+            NewMessage = await Channel.send(User.mention + " That role is not requestable.")
+        else:
+            NewMessage = await Channel.send(User.mention + " Requests the rank of: " + str(RequestedRole))
+        NewData = {"Message": NewMessage,"Role":RequestedRole}
+        Messages.appened(NewData)
     else:
         await discord.Message.delete(Message)
         Channel.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open. Thanks")
 
+#Stuff that is...Extra and may not be needed:
+"""
 @bot.command()
 async def RequestRole(ctx, arg):
     Channel = ctx.channel
@@ -79,13 +100,23 @@ async def RequestRole(ctx, arg):
                     await Channel.send(User.mention + " Requests the personal role of: " + arg)
     else:
         discord.Message.delete(Message)
-        ctx.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open. Thanks")
+        ctx.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open. Thanks")"""
+
+@bot.event()
+async def on_raw_reaction_add(payload):
+    ThroneRoom = Guild.get_channel(794271850964189204)
+    Placement = 0
+    #ReactionCount = get(payload.message.reactions, emoji=payload.emoji.name).count
+
+    if (payload.channel_id == ThroneRoom.id) and not ThroneRoomActive:
+        for message in Messages:
+            if message["Message"] == payload.message and Messages[Placement]["Role"].name == "Regent":
+                if payload.member.top_role.name != "Regent":
+                    await message["Message"].remove_reaction(payload.emoji,payload.member)
 
 @bot.listen("on_message")
 async def Responder(message):
     if message.content == "E":
         await message.channel.send("Oh?")
-
-#ThroneRoomLoop.start(Active)
 
 bot.run(TOKEN)  
