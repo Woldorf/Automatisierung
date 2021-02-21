@@ -2,27 +2,45 @@ import os, discord
 from discord.ext import commands
 from discord.utils import get
 from discord.ext import tasks
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 
 #Load the .env file
-load_dotenv()
+#load_dotenv()
 #Get the bots token
-TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD = os.getenv("DISCORD_GUILD")
+TOKEN = "Nzg5ODc2NDg2Njk3NjQ4MTY5.X94bzQ.mjYt_9zm3fa5CQ7ZzG-L0NE_vu8"
+GUILD = "Bot test server"
 
 #Enable events:
 intents = discord.Intents.all()
 #Create a function to do things:
 bot = commands.Bot(command_prefix = "TNSS ", intents = intents)
-Guild = get(bot.guilds, name = GUILD)
+Active = False
 
 @bot.event
 async def on_ready():
-    global Guild
     Guild = get(bot.guilds, name = GUILD)
     #Confirm its ready:
     print("Up and running")
-  
+
+    @tasks.loop(seconds = 10)
+    async def ThroneRoomLoop(Active):
+        ThroneRoom = Guild.get_channel(794271850964189204)
+        Active = not Active
+
+        for Role in Guild.roles:
+            print(Role)
+            if Role.name == "Test User":
+                Citizenry = Role
+                
+        if Active:
+            await ThroneRoom.set_permissions(Citizenry, view_channel = True)
+            ThroneRoom.send("Open")
+        else:
+            await ThroneRoom.set_permissions(Citizenry, view_channel = False)
+            ThroneRoom.send("Closed")
+
+    ThroneRoomLoop.start(Active)
+
 @bot.command()
 async def RequestRank(ctx):
     Channel = ctx.channel
@@ -68,10 +86,6 @@ async def Responder(message):
     if message.content == "E":
         await message.channel.send("Oh?")
 
-@tasks.loop(seconds = 5)
-async def ThroneRoomLoop():
-    pass
-
-ThroneRoomLoop.start()
+#ThroneRoomLoop.start(Active)
 
 bot.run(TOKEN)  
