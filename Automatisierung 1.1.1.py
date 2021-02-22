@@ -9,26 +9,24 @@ GUILD = "Bot test server"
 intents = discord.Intents.all()
 #Create a function to do things:
 bot = commands.Bot(command_prefix = "TNSS ", intents = intents)
-global Messages
-Messages = []
+global MessageListImportant
+MessageListImportant = []
 
 @bot.event
 async def on_ready():
     global Guild, ThroneRoom, Announcements
     Guild = get(bot.guilds, name = GUILD)
-    ThroneRoom = Guild.get_channel(813135696801038407)
-    Announcements = Guild.get_channel(813135672901894154)
-    #BTS Anouncements - 813135672901894154
-    #BTS Throne Room - 813135696801038407
-    #TNSS Anouncements - 698267492480712743
-    #TNSS Throne Room - 757391765845180416
+    Channels = await Guild.fetch_channels()
+    for channel in Channels:
+        if channel.name == "throne-room":
+            ThroneRoom = channel
+        elif channel.name == "announcements":
+            Announcements = channel
 
     StatusChangeLoop.start()
-
-    #Confirm its ready:
     print("Up and running")
 
-@tasks.loop(hours = 196)
+@tasks.loop(seconds = 30)
 async def ThroneRoomLoop():
     global ThroneRoomActive
     Active = True
@@ -44,28 +42,29 @@ async def ThroneRoomLoop():
             Citizenry = Role
             
     if Active:
-        MessageList= await ThroneRoom.history().flatten()
+        MessageList = await ThroneRoom.history().flatten()
         for message in MessageList:
             await message.delete()
 
         await ThroneRoom.set_permissions(Citizenry, view_channel = True)
-        await ThroneRoom.send("Use the command `TNSS RequestRank` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks.")
-        await Announcements.send(ThroneRoom.mention + " is now open all yall!")
+        await ThroneRoom.send("Use the command `TNSS Title` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks.")
+        MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
 
     else:
-        await  ThroneRoom.set_permissions(Citizenry, view_channel = False)
-        await  Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+        await ThroneRoom.set_permissions(Citizenry, view_channel = False)
+        MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
         
         for member in  Guild.members:
             if member.top_role.name == "Citizenry":
                 Message = await  ThroneRoom.send("Grant " + member.mention + " the Good Lad/Lady role")
                 Data = {"Message":Message,"Role":Citizenry}
-                Messages.append(Data)
+                MessageListImportant.append(Data)
 
-        for message in Messages:
+        for message in MessageListImportant:
             await message["Message"].add_reaction("👍")
             await message["Message"].add_reaction("👎")
 
+    await MessageToDelete.delete(delay = 345600)
     ThroneRoomActive = Active
 
 @tasks.loop(hours = 96)
@@ -75,31 +74,31 @@ async def StatusChangeLoop():
     await bot.change_presence(activity = discord.Activity(type = discord.ActivityType.playing, name = Status))
 
 @bot.command(help = "Request 1 rank higher than you currently have.")
-async def RequestRank(ctx):
+async def Title(ctx):
     Channel = ctx.channel
     Message = ctx.message
 
-    if Channel.name == "snake-pit":
+    if Channel == ThroneRoom and ThroneRoomActive:
         User = Message.author
 
         if User.top_role.name == "Citizenry":
-            ctx.send("You need a higher rank to be able to request ranks.")
+            ctx.send("You need a higher rank to be able to request titles.")
         else:
             Placement = 0
-            for Role in  Guild.roles[1:]:
+            for Role in Guild.roles:
                 if Role == User.top_role:
                     if Placement != (len( Guild.roles)):
-                        RequestedRole =  Guild.roles[Placement + 1]
+                        RequestedRole = Guild.roles[Placement + 1]
                 Placement += 1
 
-            await discord.Message.delete(Message)
-
             if RequestedRole.name == "Head Regent":
-                NewMessage = await Channel.send(User.mention + " That role is not requestable.")
+                NewMessage = await Channel.send(User.mention + " That title is not requestable.")
             else:
-                NewMessage = await Channel.send(User.mention + " Requests the rank of: " + str(RequestedRole))
+                NewMessage = await Channel.send(User.mention + " Requests the title of: " + str(RequestedRole))
+
+            await discord.Message.delete(Message)
             NewData = {"Message": NewMessage,"Role":RequestedRole}
-            Messages.appened(NewData)
+            MessageListImportant.append(NewData)
     else:
         await discord.Message.delete(Message)
         Message = await Channel.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open.")
@@ -107,13 +106,16 @@ async def RequestRank(ctx):
 
 @bot.event
 async def on_raw_reaction_add(payload):
-    Placement = 0
-    if (payload.channel_id ==  ThroneRoom.id) and not ThroneRoomActive:
-        for message in Messages:
-            if message["Message"] == payload.message and Messages[Placement]["Role"].name == "Regent":
-                if payload.member.top_role.name != "Regent":
-                    await message["Message"].remove_reaction(payload.emoji,payload.member)
-            Placement += 1
+    User = Guild.get_member(payload.member.id)
+    if (payload.channel_id ==  ThroneRoom.id):
+        for message in MessageListImportant:
+            for role in User.roles:
+                if role.name != message["Role"] and User != bot.user:
+                    Cleared = False
+                else:
+                    Cleared = True
+            if not Cleared:
+                await message["Message"].remove_reaction(payload.emoji,payload.member)
 
 @bot.command(help = "Commands available only to Regents to change whats up with the #throne-room loop settings.")
 async def LoopSettings(ctx, arg):
@@ -158,10 +160,23 @@ async def LoopInterval(ctx, arg):
 async def Commands(ctx):
     Help = discord.Embed()
     Help.add_field(name = "BOT PREFIX", value = "TNSS")
-    Help.add_field(name = "COMMANDS", value = "RequestRank")
-    Help.add_field(name = "RequestRank", value = "Ex: TNSS RequestRank. Only available when the Throne Room is available and if you have the Good Lad/Lady role")
-
+    Help.add_field(name = "COMMANDS", value = "Title")
+    Help.add_field(name = "Title", value = "Only available when the Throne Room is available and if you have the Good Lad/Lady Title")
+    Help.add_field(name = "EXAMPLE:", value = "Ex: TNSS Title")
     await ctx.send(embed = Help)
+
+@bot.command(help = "None")
+async def Password(ctx):
+    Member = ctx.message.author
+    if Member.top_role.name != "Regent":
+        await ctx.send("You do not have permission to access this command.")
+    else:
+        Help = discord.Embed()
+        Help.add_field(name = "BOT PREFIX", value = "TNSS")
+        Help.add_field(name = "HIDDEN COMMANDS", value = "LoopSettings and LoopInterval")
+        Help.add_field(name = "LoopSettings", value = "Has 3 sub-commands: Restart, Start and Stop. They will each do that to the Throne Room loop. EX: TNSS LoopSettings Start/Stop/Restart")
+        Help.add_field(name = "LoopInterval", value = "Has 1 function: Time. It will change the Throne Room loop interval to Time amount of hours. EX: TNSS LoopInterval 56")
+        await ctx.send(embed = Help)
 
 @bot.listen("on_message")
 async def Responder(message):
