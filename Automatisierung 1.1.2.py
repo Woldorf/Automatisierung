@@ -10,10 +10,11 @@ GUILD = "The New Server Server"
 intents = discord.Intents.all()
 #Create a function to do things:
 bot = commands.Bot(command_prefix = "Fish ", intents = intents)
-global MessageListImportant
+global MessageListImportant, ThroneRoomActive
 MessageListImportant = []
-RoleHeigherarchy = ["Citizenry","Good Lad","Count","Duke","Regent","Head Regent"]
-RoleHeigherarchy2 = ["Citizenry","Good Lady","Countess","Dutchess","Regent","Head Regent"]
+RoleHeigherarchy = ["Citizenry","Good Lad","Count","Duke","Regent","Head Regent","King"]
+RoleHeigherarchy2 = ["Citizenry","Good Lady","Countess","Duchess","Regent","Head Regent","King"]
+ThroneRoomActive = False
 
 async def RoleGetter(Member):
     Cleared = False
@@ -23,7 +24,6 @@ async def RoleGetter(Member):
         else:
             Cleared = True
             break
-
     return Cleared
 
 @bot.event
@@ -62,15 +62,15 @@ async def ThroneRoomLoop():
 
         await ThroneRoom.set_permissions(Citizenry, view_channel = True)
         await ThroneRoom.send("Use the command `Fish Title` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks.")
-        MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
+        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
 
     else:
         await ThroneRoom.set_permissions(Citizenry, view_channel = False)
-        MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
         
         for member in  Guild.members:
             if member.top_role.name == "Citizenry":
-                Message = await  ThroneRoom.send("Grant " + member.mention + " the Good Lad/Lady role")
+                Message = await  ThroneRoom.send("Grant " + member.mention + " the Good Lad/Lady role?")
                 Data = {"Message":Message,"Role":Citizenry}
                 MessageListImportant.append(Data)
 
@@ -78,66 +78,92 @@ async def ThroneRoomLoop():
             await message["Message"].add_reaction("👍")
             await message["Message"].add_reaction("👎")
 
-    await MessageToDelete.delete(delay = 345600)
+    #await MessageToDelete.delete(delay = 345600)
     ThroneRoomActive = Active
 
 @tasks.loop(hours = 96)
 async def StatusChangeLoop():
-    Options = ["I spent way too much time on this","I should get a life","Why do I do all the grunt work?","Pedro for president 2024!"," Minecraft"]
+    Options = ["I spent way too much time on this","I should get a life","Why do I do all the grunt work?","Pedro for president 2024!","Minecraft"]
     Status = random.choice(Options)
     await bot.change_presence(activity = discord.Activity(type = discord.ActivityType.playing, name = Status))
 
 @bot.command(help = "Request 1 title higher than you currently have.")
 async def Title(ctx):
-    Channel = ctx.channel
     Message = ctx.message
 
-    if Channel == ThroneRoom and ThroneRoomActive:
+    if ctx.channel == ThroneRoom and ThroneRoomActive:
         User = Message.author
         RoleChosen = False
-        RequestedRole = Guild.roles[0]
+        Cleared = False
+        TitleList = Guild.roles
+        RequestedTitle = "TEST"
 
-        if User.top_role.name == RoleHeigherarchy[0]:
-            ctx.send("You need a higher rank to be able to request titles.")
+        for role in User.roles:
+            if role.name == RoleHeigherarchy[1]:
+                CurrentTitle = {"Role":role,"Rank":1,"H":1}
+                Cleared = True
+            elif role.name == RoleHeigherarchy2[1]:
+                CurrentTitle = {"Role":role,"Rank":1,"H":2}
+                Cleared = True
+
+            elif role.name == RoleHeigherarchy[2]:
+                CurrentTitle = {"Role":role,"Rank":2,"H":1}
+            elif role.name == RoleHeigherarchy2[2]:
+                CurrentTitle = {"Role":role,"Rank":2,"H":2}
+
+            elif role.name == RoleHeigherarchy[3]:
+                CurrentTitle = {"Role":role,"Rank":3,"H":1}
+            elif role.name == RoleHeigherarchy2[3]:
+                CurrentTitle = {"Role":role,"Rank":3,"H":2}
+
+            elif role.name == RoleHeigherarchy[4] or role.name == RoleHeigherarchy2[4]:
+                CurrentTitle = {"Role":role,"Rank":4,"H":1}
+            elif role.name == RoleHeigherarchy[5] or role.name == RoleHeigherarchy2[5]:
+                CurrentTitle = {"Role":role,"Rank":5,"H":1}
+            elif role.name == RoleHeigherarchy[6] or role.name == RoleHeigherarchy2[6]:
+                CurrentTitle = {"Role":role,"Rank":6,"H":1}
+                        
+        if not Cleared:
+            await ctx.send("You need a higher rank to be able to request titles.")
         else:
-            Placement = 0
-            for Role in RoleHeigherarchy:
-                if Role == User.top_role.name:
-                    RoleChosen = True
-                    TitleList = await Guild.fetch_roles()
-                    for Title in TitleList:
-                        if Title.name == RoleHeigherarchy[Placement + 1]:
-                            RequestedRole = Title
-                Placement += 1
+            for Title in TitleList[1:]:
+                if Title == CurrentTitle["Role"]:
+                    if CurrentTitle["Rank"] < 4:
+                        if CurrentTitle["H"] == 1:
+                            RequestedTitle = RoleHeigherarchy[CurrentTitle["Rank"] + 1]
+                            RoleChosen = True
+                        else:
+                            RequestedTitle = RoleHeigherarchy2[CurrentTitle["Rank"] + 1]
+                            RoleChosen = True
 
-            if not RoleChosen:
-                Placement = 0
-                for Role in RoleHeigherarchy2:
-                    if Role == User.top_role.name:
-                        RoleChosen = True
-                        TitleList = await Guild.fetch_roles()
-                        for Title in TitleList:
-                            if Title.name == RoleHeigherarchy2[Placement + 1]:
-                                RequestedRole = Title 
-                    Placement += 1            
+                    elif CurrentTitle["Rank"] == 4:
+                        await ctx.send("That title is granted by the King, you cannot request it")
+                        RoleChosen = False
 
-            if RequestedRole.name == RoleHeigherarchy[5]:
-                NewMessage = await Channel.send(User.mention + " That title is not requestable. It must be granted by the top title (The king) on the server.")
-            else:
-                NewMessage = await Channel.send(User.mention + " Requests the title of: " + str(RequestedRole))
+                    elif CurrentTitle["Rank"] == 5:
+                        await ctx.send("When the King ~~dies~~ leaves you are given his title. Otherwise you cant request the King title")
+                        RoleChosen = False
 
-            await discord.Message.delete(Message)
-            NewData = {"Message": NewMessage,"Role":RequestedRole}
-            MessageListImportant.append(NewData)
+                    elif CurrentTitle["Rank"] == 6:
+                        await ctx.send("You're already top of the ship mate. You cant request any higher")
+                        RoleChosen = False
+            
+                if RoleChosen:
+                    if Title.name == RequestedTitle:
+                        NewMessage = await ctx.send(User.mention + " Requests the title of: " + str(Title.name))
+
+                        await discord.Message.delete(Message)
+                        NewData = {"Message": NewMessage,"Role":Title}
+                        MessageListImportant.append(NewData)
+
     else:
         await discord.Message.delete(Message)
-        Message = await Channel.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open.")
+        Message = await ctx.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open.")
         await Message.delete(delay=10)
 
-@bot.command(help = "Commands available only to Regents to change whats up with the #throne-room loop settings.")
+@bot.command(help = "None")
 async def LoopSettings(ctx, arg):
     Member = ctx.message.author
-    Cleared = False
     Cleared = await RoleGetter(Member)
             
     if not Cleared:    
@@ -164,7 +190,7 @@ async def LoopSettings(ctx, arg):
                 await ctx.send("The #throne-room loop is not running.")
             else:
                 await ctx.send("The #throne-room loop has been stopped.")
-                await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+                #await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
                 ThroneRoomLoop.cancel()
 
 @bot.command(help = "Change interval of #throne-room cycle in hours.")
