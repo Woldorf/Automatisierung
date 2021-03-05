@@ -16,10 +16,10 @@ RoleHeigherarchy = ["Citizenry","Good Lad","Count","Duke","Regent","Head Regent"
 RoleHeigherarchy2 = ["Citizenry","Good Lady","Countess","Duchess","Regent","Head Regent","King"]
 ThroneRoomActive = False
 
-async def RoleGetter(Member):
+async def RoleGetter(Member,RoleNeeded):
     Cleared = False
     for role in Member.roles:
-        if role.name != "Regent":
+        if role.name != RoleNeeded:
             Cleared = False
         else:
             Cleared = True
@@ -28,7 +28,7 @@ async def RoleGetter(Member):
 
 @bot.event
 async def on_ready():
-    global Guild, ThroneRoom, Announcements
+    global Guild, ThroneRoom, Announcements, AdminBotChannel
     Guild = get(bot.guilds, name = GUILD)
     Channels = await Guild.fetch_channels()
 
@@ -37,36 +37,36 @@ async def on_ready():
             ThroneRoom = channel
         elif channel.name == "announcements":
             Announcements = channel
+        elif channel.name == "admin-bots":
+            AdminBotChannel = channel
 
     StatusChangeLoop.start()
 
 @tasks.loop(hours = 196)
 async def ThroneRoomLoop():
-    global ThroneRoomActive
     Active = True
     if ThroneRoomLoop.current_loop == 0:
         Active = True
+        ThroneRoomLoop.change_interval(72)
     elif (ThroneRoomLoop.current_loop % 2) == 0:
         Active = True
+        ThroneRoomLoop.change_interval(72)
     else:
         Active = False
+        ThroneRoomLoop.change_interval(196)
 
     for Role in Guild.roles:
         if Role.name == RoleHeigherarchy[0]:
             Citizenry = Role
 
     if Active:
-        MessageList = await ThroneRoom.history().flatten()
-        for message in MessageList:
-            await message.delete()
-
+        await ThroneRoom.purge()
         await ThroneRoom.set_permissions(Citizenry, view_channel = True)
         await ThroneRoom.send("Use the command `Fish Title` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks.")
-        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
-
+        MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
     else:
         await ThroneRoom.set_permissions(Citizenry, view_channel = False)
-        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+        MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
         
         for member in  Guild.members:
             if member.top_role.name == "Citizenry":
@@ -78,14 +78,31 @@ async def ThroneRoomLoop():
             await message["Message"].add_reaction("👍")
             await message["Message"].add_reaction("👎")
 
-    #await MessageToDelete.delete(delay = 345600)
+    await MessageToDelete.delete(delay = 345600)
     ThroneRoomActive = Active
 
-@tasks.loop(hours = 96)
+@tasks.loop(hours = 24)
 async def StatusChangeLoop():
-    Options = ["I spent way too much time on this","I should get a life","Why do I do all the grunt work?","Pedro for president 2024!","Minecraft"]
+    Options = ["I spent way too much time on this","I should get a life","Why do I do all the grunt work?","Pedro for president 2024!",\
+                "Minecraft","Can I earn money doing this?","Earth is fine, people are dumb",\
+                "Everyone should be able to do one card trick, tell two jokes, and recite three poems, in case they are ever trapped in an elevator",\
+                "Bruh","When a bird hits your window have you ever wondered if God is playing angry birds with you?",\
+                "When I’m on my death bed, I want my final words to be “I left one million dollars in the…",\
+                "My study period = 15 minutes. My break time = 3 hours","Never make eye contact while eating a banana",\
+                "C.L.A.S.S- come late and start sleeping","My biggest concern in life is actually how my online friends can be informed of my death!",\
+                "How do you know what it’s like to be stupid if you’ve never been smart?","I hate fake people. You know what I’m talking about. Mannequins."\
+                "Everything is 10x funnier when you are not supposed to laugh.","It may look like I’m deep in thought, but 99% of the time I’m just thinking about what food to eat later.",\
+                "\"Focusing\" on school work","That awkward moment when you realize that dora, who is 5, has more freedom than you.",\
+                "That awkward when your eyes assumed “moment” was written after \"awkward\"","Never gonna let you down","Never gonna run around",\
+                "https://www.youtube.com/watch?v=dQw4w9WgXcQ","I lost the game","Dont forget to like and subscribe!","Imagine putting in effort",\
+                "I put the most effort into these quotes","If you have more status ideas, DM helaugheth#5815","Epsilon SMP!","Psst, is anyone watching these?",\
+                "There are 10 types of people, those who understand binary and those who dont","I should focus on college homework","There are 13 lines of quotes for me to choose from.",\
+                "Ph'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn","#SupportC'thulu","#LearnParsletoung","I'm adding these during class","lol",\
+                "XD","Bro this releaves so much boredom","Shoot, I should do homework","College classes are BORING","All around me are familiar faces...",\
+                "What is this...\"Fish Commands\" thing?","Yar dar dar and a hody hody do","https://www.youtube.com/watch?v=Q04Lkw91Gts"]
+
     Status = random.choice(Options)
-    await bot.change_presence(activity = discord.Activity(type = discord.ActivityType.playing, name = Status))
+    await bot.change_presence(activity = discord.Game(name = Status))
 
 @bot.command(help = "Request 1 title higher than you currently have.")
 async def Title(ctx):
@@ -164,7 +181,7 @@ async def Title(ctx):
 @bot.command(help = "None")
 async def LoopSettings(ctx, arg):
     Member = ctx.message.author
-    Cleared = await RoleGetter(Member)
+    Cleared = await RoleGetter(Member,"Regent")
             
     if not Cleared:    
         await ctx.send("You do not have permission to access this command.")
@@ -172,66 +189,59 @@ async def LoopSettings(ctx, arg):
     else:
         if arg == "Restart":
             ThroneRoomLoop()
-            await ctx.send("The #throne-room open/close cycle has been restarted. The current loop time is: " + str(ThroneRoomLoop.next_iteration))
+            await AdminBotChannel.send("The #throne-room open/close cycle has been restarted. The current loop time is: " + str(ThroneRoomLoop.next_iteration))
             await ThroneRoomLoop.restart()
 
         elif arg == "Start":
             if ThroneRoomLoop.is_running():
                 if  ThroneRoomActive:
-                    await ctx.send("The #throne-room loop is already running. #throne-room is currently open and will close on: " + str(ThroneRoomLoop.next_iteration))
+                    await AdminBotChannel.send("The #throne-room loop is already running. #throne-room is currently open and will close on: " + str(ThroneRoomLoop.next_iteration))
                 else:
-                    await ctx.send("The #throne-room loop is already running. #throne-room is currently closed and will open on: " + str(ThroneRoomLoop.next_iteration))
+                    await AdminBotChannel.send("The #throne-room loop is already running. #throne-room is currently closed and will open on: " + str(ThroneRoomLoop.next_iteration))
             else:
-                await ctx.send("The #throne-room loop has been started")
+                await AdminBotChannel.send("The #throne-room loop has been started")
                 await ThroneRoomLoop.start()
-    
+
         elif arg == "Stop":
             if not ThroneRoomLoop.is_running():
-                await ctx.send("The #throne-room loop is not running.")
+                await AdminBotChannel.send("The #throne-room loop is not running.")
             else:
-                await ctx.send("The #throne-room loop has been stopped.")
-                #await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+                await AdminBotChannel.send("The #throne-room loop has been stopped.")
+                await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
                 ThroneRoomLoop.cancel()
-
-@bot.command(help = "Change interval of #throne-room cycle in hours.")
-async def LoopInterval(ctx, arg):
-    Member = ctx.message.author
-    Cleared = False
-    Cleared = await RoleGetter(Member)
-            
-    if not Cleared:    
-        await ctx.send("You do not have permission to access this command.")
-
-    else:
-        ThroneRoomLoop.change_interval(hours = int(arg))
-        ThroneRoomLoop.restart()
-        await ctx.send("Interval changed to: " + str(arg) + " hours and restarted.")
 
 @bot.command(help = "Shows available commands")
 async def Commands(ctx):
     Help = discord.Embed()
     Help.add_field(name = "BOT PREFIX", value = "Fish")
-    Help.add_field(name = "COMMANDS", value = "Title")
-    Help.add_field(name = "Title:", value = "Only available when the Throne Room is available and if you have the Good Lad/Lady Title")
-    Help.add_field(name = "EXAMPLE:", value = "Ex: Fish Title")
+    Help.add_field(name = "COMMANDS", value = "`Title`")
+    Help.add_field(name = "Title:", value = "Only available when the Throne Room is available and if you have the Good Lad/Lady Title. EX: Fish Title")
     await ctx.send(embed = Help)
 
 @bot.command(help = "None")
-async def Password(ctx):
+async def AdminHelp(ctx):
     Member = ctx.message.author
     Cleared = False
-    Cleared = await RoleGetter(Member)
-            
+    Cleared = await RoleGetter(Member,"Regent")
     if not Cleared:    
         await ctx.send("You do not have permission to access this command.")
-
     else:
         Help = discord.Embed()
         Help.add_field(name = "BOT PREFIX", value = "Fish")
-        Help.add_field(name = "HIDDEN COMMANDS", value = "LoopSettings and LoopInterval")
+        Help.add_field(name = "HIDDEN COMMANDS", value = "`LoopSettings`, `Clear`")
         Help.add_field(name = "LoopSettings", value = "Has 3 sub-commands: Restart, Start and Stop. They will each do that to the Throne Room loop. EX: Fish LoopSettings Start/Stop/Restart")
-        Help.add_field(name = "LoopInterval", value = "Has 1 function: Time. It will change the Throne Room loop interval to Time amount of hours. EX: Fish LoopInterval 56")
-        await ctx.send(embed = Help)
+        Help.add_field(name = "Clear", value = "Clear an amount of messages from a channel. EX: Fish Clear 6")
+        await AdminBotChannel.send(embed = Help)
+
+@bot.command(help = "None")
+async def Clear(ctx,arg):
+    Cleared = await RoleGetter(ctx.message.author,"Duke")
+    Cleared2 = await RoleGetter(ctx.message.author,"Duchess")
+
+    if not Cleared and not Cleared2:
+        await ctx.send("You do not have permission to access this command.")
+    else:
+        await ctx.channel.purge(limit=int(arg))
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -239,16 +249,19 @@ async def on_raw_reaction_add(payload):
     if (payload.channel_id ==  ThroneRoom.id):
         for message in MessageListImportant:
             for role in User.roles:
-                if role.name != message["Role"] and User != bot.user:
+                if role.name != message["Role"].name and User != bot.user:
                     Cleared = False
                 else:
                     Cleared = True
+                    break
             if not Cleared:
                 await message["Message"].remove_reaction(payload.emoji,payload.member)
 
 @bot.listen("on_message")
 async def Responder(message):
     if message.content == "E":  
-        await message.channel.send("Oh?")
+        Message2 = await message.channel.send("Oh?")
+        await message.delete(delay = 5)
+        await Message2.delete(delay = 5)
 
 bot.run(TOKEN)
