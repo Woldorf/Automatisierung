@@ -3,7 +3,7 @@ import discord,random
 from discord.ext import commands, tasks
 from discord.utils import get
 
-TOKEN = "Nzg5ODc2NDg2Njk3NjQ4MTY5.X94bzQ.mjYt_9zm3fa5CQ7ZzG-L0NE_vu8"
+TOKEN = "Token lol"
 GUILD = "The New Server Server"
 
 #Enable events:
