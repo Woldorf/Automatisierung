@@ -47,13 +47,10 @@ async def ThroneRoomLoop():
     Active = True
     if ThroneRoomLoop.current_loop == 0:
         Active = True
-        ThroneRoomLoop.change_interval(72)
     elif (ThroneRoomLoop.current_loop % 2) == 0:
         Active = True
-        ThroneRoomLoop.change_interval(72)
     else:
         Active = False
-        ThroneRoomLoop.change_interval(196)
 
     for Role in Guild.roles:
         if Role.name == RoleHeigherarchy[0]:
@@ -61,15 +58,22 @@ async def ThroneRoomLoop():
 
     if Active:
         await ThroneRoom.purge()
-        await ThroneRoom.set_permissions(Citizenry, view_channel = True)
-        await ThroneRoom.send("Use the command `Fish Title` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks.")
-        MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
+        #await ThroneRoom.set_permissions(Citizenry, view_channel = True)
+        #await ThroneRoom.send("Use the command `Fish Title` to automatically request the rank higher than you are currently at. You must have the Good Lad/Lady rank to request higher ranks. You can use `Fish Title help` to get more help.")
+        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " is now open all yall!")
     else:
-        await ThroneRoom.set_permissions(Citizenry, view_channel = False)
-        MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
+        #await ThroneRoom.set_permissions(Citizenry, view_channel = False)
+        #MessageToDelete = await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
         
         for member in  Guild.members:
-            if member.top_role.name == "Citizenry":
+            Cleared = False
+            for role in member.roles:
+                if role.name == RoleHeigherarchy[0]:
+                    Cleared = True
+                elif role.name == RoleHeigherarchy[1] or role.name == RoleHeigherarchy2[1]:
+                    Cleared = False
+
+            if Cleared:
                 Message = await  ThroneRoom.send("Grant " + member.mention + " the Good Lad/Lady role?")
                 Data = {"Message":Message,"Role":Citizenry}
                 MessageListImportant.append(Data)
@@ -78,8 +82,8 @@ async def ThroneRoomLoop():
             await message["Message"].add_reaction("👍")
             await message["Message"].add_reaction("👎")
 
-    await MessageToDelete.delete(delay = 345600)
-    ThroneRoomActive = Active
+    #await MessageToDelete.delete(delay = 345600)
+    ThroneRoomActive = Active  
 
 @tasks.loop(hours = 24)
 async def StatusChangeLoop():
@@ -172,17 +176,20 @@ async def Title(ctx):
                         await discord.Message.delete(Message)
                         NewData = {"Message": NewMessage,"Role":Title}
                         MessageListImportant.append(NewData)
-
     else:
         await discord.Message.delete(Message)
         Message = await ctx.send("Incorrect channel. Message has been deleted. Please only use this command in #throne-room and only when it's open.")
         await Message.delete(delay=10)
 
-@bot.command(help = "None")
+@bot.command(help = "Admin level command")
 async def LoopSettings(ctx, arg):
     Member = ctx.message.author
     Cleared = await RoleGetter(Member,"Regent")
-            
+
+    for Role in Guild.roles:
+        if Role.name == RoleHeigherarchy[0]:
+            Citizenry = Role
+
     if not Cleared:    
         await ctx.send("You do not have permission to access this command.")
 
@@ -210,6 +217,27 @@ async def LoopSettings(ctx, arg):
                 await Announcements.send(ThroneRoom.mention + " has closed. Voting will be held and results will be announced soon.")
                 ThroneRoomLoop.cancel()
 
+        elif arg == "QuietStart":
+            #await ThroneRoom.set_permissions(Citizenry, view_channel = True)
+            await AdminBotChannel.send("Citizenry has been given access. No announcements made.")
+            ThroneRoomActive = True
+
+        elif arg == "QuietStop":
+            #await ThroneRoom.set_permissions(Citizenry, view_channel = False)
+            await AdminBotChannel.send("Citizenry access has been removed. No announcements made.")
+            ThroneRoomActive = False
+        
+        elif arg == "help":
+            Help = discord.Embed()
+            Help.add_field(name = "BOT PREFIX", value = "Fish")
+            Help.add_field(name = "LoopSettings Commands", value = "`Start` | `Stop` | `Restart` | `QuietStart` | ` QuietStop`")
+            Help.add_field(name = "Start", value = "Starts the throne room loop EX: `Fish LoopSettings Start`")
+            Help.add_field(name = "Stop", value = "Stops the throne room loop EX: `Fish LoopSettings Stop`")
+            Help.add_field(name = "Restart", value = "Restarts the throne room loop EX: `Fish LoopSettings Restart`")
+            Help.add_field(name = "QuietStart", value = "Start the throne room loop without public announcements made. EX: `Fish LoopSettings QuietStart`")
+            Help.add_field(name = "QuietStop", value = "Close the throne room without public announcements made. EX: `Fish LoopSettings QuietStop`")
+            await ctx.send(embed = Help)
+
 @bot.command(help = "Shows available commands")
 async def Commands(ctx):
     Help = discord.Embed()
@@ -218,7 +246,7 @@ async def Commands(ctx):
     Help.add_field(name = "Title:", value = "Only available when the Throne Room is available and if you have the Good Lad/Lady Title. EX: Fish Title")
     await ctx.send(embed = Help)
 
-@bot.command(help = "None")
+@bot.command(help = "Admin level command")
 async def AdminHelp(ctx):
     Member = ctx.message.author
     Cleared = False
@@ -229,8 +257,8 @@ async def AdminHelp(ctx):
         Help = discord.Embed()
         Help.add_field(name = "BOT PREFIX", value = "Fish")
         Help.add_field(name = "HIDDEN COMMANDS", value = "`LoopSettings`, `Clear`")
-        Help.add_field(name = "LoopSettings", value = "Has 3 sub-commands: Restart, Start and Stop. They will each do that to the Throne Room loop. EX: Fish LoopSettings Start/Stop/Restart")
-        Help.add_field(name = "Clear", value = "Clear an amount of messages from a channel. EX: Fish Clear 6")
+        Help.add_field(name = "HELP", value = "Run the command with `help` after to get help. EX: `Fish Clear help`")
+        #Help.add_field(name = "LoopSettings", value = "Has 3 sub-commands: Restart, Start and Stop. They will each do that to the Throne Room loop. EX: Fish LoopSettings Start/Stop/Restart")
         await AdminBotChannel.send(embed = Help)
 
 @bot.command(help = "None")
@@ -241,7 +269,11 @@ async def Clear(ctx,arg):
     if not Cleared and not Cleared2:
         await ctx.send("You do not have permission to access this command.")
     else:
-        await ctx.channel.purge(limit=int(arg))
+        if arg == "help":
+            await ctx.message.delete(delay = 20)
+            await ctx.send("Clear an amount of messages from a channel. `EX: Fish Clear 6`")
+        else:
+            await ctx.channel.purge(limit=int(arg))
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -260,8 +292,8 @@ async def on_raw_reaction_add(payload):
 @bot.listen("on_message")
 async def Responder(message):
     if message.content == "E":  
-        Message2 = await message.channel.send("Oh?")
-        await message.delete(delay = 5)
-        await Message2.delete(delay = 5)
+        Message2 = await message.channel.send("Oh?").delte(delay = 5)
+        #await message.delete(delay = 5)
+        #await Message2.delete(delay = 5)
 
 bot.run(TOKEN)
