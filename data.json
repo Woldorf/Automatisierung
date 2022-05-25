@@ -1,0 +1,49 @@
+{
+  "channels": {
+    "throne-room": "813135696801038407",
+    "announcements": "813135672901894154",
+    "admin-bots": "833111713967505438",
+    "stats": "973234418363818036",
+    "rules": "973234483274858528"
+  },
+  "throne-room": {
+    "messages": [
+    ],
+    "active": "False",
+    "time-left": "None"
+  },
+  "stats": {
+    "main": {
+      "messageID": "973254008783384586",
+      "event": "Test"
+    },
+    "secondary": {
+      "messageID": "973254098486976522",
+      "event": "Test"
+    }
+  },
+  "RCONLogs": [],
+  "registry": [],
+  "RCON": {
+    "password": "Spghtt",
+    "ip": "IP",
+    "hostIP": "SERVERIP",
+    "file": "PATH/Automater/RCONLogs.log",
+    "main": {
+      "rconport": 25575,
+      "mainport": 25565
+    },
+    "secondary": {
+      "rconport": 25579,
+      "mainport": 25568
+    }
+  },
+  "serverfiles": {
+    "main": {
+      "properties": "PATH/MinecraftServers/Spigot/1.18.2/server.properties"
+    },
+    "secondary": {
+      "properties": "PATH/MinecraftServers/Spigot/1.18.2/server.properties"
+    }
+  }
+}
