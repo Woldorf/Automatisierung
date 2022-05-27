@@ -76,21 +76,24 @@ def writeJSONFile(new):
         F.write(json.dumps(new,indent=2))
 
 def opCommand(Command,User,server):
-    textData = ''
+    # TODO what if any of these function calls fail?
     jsonData = getJSONFile()
-    if server == 'main':
-        rconClient = mctools.mclient.RCONClient(host=jsonData['RCON']['ip'],port=jsonData['RCON']['main']['rconport'],format_method=1,timeout=60)
-        rconClient.authenticate(jsonData['RCON']['password'])
-        textData = rconClient.command(Command)
-        textData = textData.replace('[0m','')
+    if server == 'main' or server == 'secondary':
+        rconClient = mctools.mclient.RCONClient(host=jsonData['RCON']['ip'],
+                                                port=jsonData['RCON'][server]['rconport'], 
+                                                format_method=1,
+                                                timeout=60)
+        rconClient.authenticate(jsonData['RCON']['password'])  # TODO is this really just a plain-text password stored in RAM? THEN STORED IN A FILE?
+        textData = rconClient.command(Command).replace('[0m','')  # TODO why are we removing this? What's significant about it?
         rconClient.stop()
-    elif server == 'secondary':
-        rconClient = mctools.mclient.RCONClient(host=jsonData['RCON']['ip'],port=jsonData['RCON']['secondary']['rconport'],format_method=1,timeout=60)
-        rconClient.authenticate(jsonData['RCON']['password'])
-        textData = rconClient.command(Command)
-        textData = textData.replace('[0m','')
-        rconClient.stop()
-    jsonData['RCONLogs'].append({'user':str(User.display_name),'date':str(datetime()),'command':str(Command),'return':str(textData)})
+    else:
+        textData = '' # Server is not main or secondary, but we still need this string. TODO should this log this?
+    jsonData['RCONLogs'].append({
+        'user':str(User.display_name),
+        'date':str(datetime()),
+        'command':str(Command),
+        'return':str(textData)
+    })
     writeJSONFile(jsonData)
     return textData
 
